@@ -50,8 +50,9 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
             float px =  rho * cos( phi)  ;
             float py =  rho * sin( phi ) ;
 
-            // set current state - we could use rho_dot * cos( phi ) ...
-            ekf_.x_ << px, py, 0 , 0 ;
+            // set current state - unknown velocity assume 1
+            //.
+            ekf_.x_ << px, py, 1 , 1 ;
 
 
         } else if (measurement_pack.sensor_type_ == MeasurementPackage::LASER) {
@@ -60,8 +61,8 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
             float px = measurement_pack.raw_measurements_[0] ;
             float py = measurement_pack.raw_measurements_[1] ;
 
-            // we don't know velocity , we can
-            ekf_.x_ << px, py, 0.5 , 0.5  ;
+            // we don't know velocity , we assume 1
+            ekf_.x_ << px, py, 1 , 1  ;
 
         }
 
@@ -91,12 +92,14 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
      ****************************************************************************/
 
     if (measurement_pack.sensor_type_ == MeasurementPackage::RADAR) {
-        ekf_.updateRADAR() ;
+        ekf_.UpdateRADAR( measurement_pack.raw_measurements_ ) ;
     } else {
-        ekf_.updateLIDAR() ;
+        ekf_.UpdateLIDAR( measurement_pack.raw_measurements_ ) ;
     }
 
     // print the output
-    cout << "x_ = " << ekf_.x_ << endl;
-    cout << "P_ = " << ekf_.P_ << endl;
+    //cout << "x_ = " << ekf_.x_ << endl;
+    //cout << "P_ = " << ekf_.P_ << endl;
 }
+
+
