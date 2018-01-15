@@ -66,13 +66,14 @@ KalmanFilter::~KalmanFilter() {}
 
 void KalmanFilter::Predict( float dt ) {
 
-    //
+    // the compiler will optimize these
 	const float noise_ax = 9.0 ;
 	const float noise_ay = 9.0 ;
 
     // quick and dirty , can't hurt
     // when dt - hasnt changed use old F_ , Q_  matrix values
-    // otherwise recompute
+    // otherwise we recalculate them
+
 	 if ( prev_dt != dt ) {
 
 
@@ -92,12 +93,11 @@ void KalmanFilter::Predict( float dt ) {
                 0               , noise_ay * dt4 , 0              , noise_ay * dt3 ,
                 noise_ax * dt3  , 0              , noise_ax * dt2 , 0              ,
                 0               , noise_ay * dt3 , 0              , noise_ay * dt2 ;
-
     }
 
     // predict next state from previous
     x_ = F_ * x_;
-    // predict new covariance matrix ,
+    //  new covariance matrix ,
     P_ = F_ * P_ * ( F_.transpose()) + Q_;
 
 
@@ -116,6 +116,7 @@ void KalmanFilter::UpdateLIDAR(const VectorXd &z) {
 	VectorXd y = z - H_lidar_ * x_;
 	// update new state based on current measurement.
 	x_ = x_ + ( K * y ) ;
+	// update estimate covaraince matrix
     P_ = ( I_ - K * H_lidar_ ) * P_;
 }
 
@@ -132,14 +133,15 @@ void KalmanFilter::UpdateRADAR(const VectorXd &z) {
 
   // we have already unpacked the current state vector x_
   // so we might as well calculate the jacaobian matrix here
+  //
 
   float r1 = ( px*px ) + ( py * py ) ;
-  if ( r1 < 1e-5 )
-     r1 = 1e-5 ;
+  if ( r1 < 1.0e-5 )
+     r1 = 1.0e-5 ;
 
-  float rho = sqrt( r1 )             ;
-  float r3 = r1 * rho                ;
-  float phi = atan2( py , px )            ;
+  float rho = sqrt( r1 )             ; // (px^2+py^2)^0.5
+  float r3 = r1 * rho                ; // (px^2+py^2)^1.5
+  float phi = atan2( py , px )       ;
   float rho_dot = ( px*vx + py*vy ) / rho ;
 
   float a , b ; // values used twice
@@ -147,17 +149,24 @@ void KalmanFilter::UpdateRADAR(const VectorXd &z) {
   a = px / rho ;
   b = py / rho ;
 
-  H_radar_ << a , b , 0 , 0 ,
+  H_radar_ <<    a , b , 0 , 0 ,
               -py/r1  , px/r1 , 0, 0 ,
               py*(vx*py-vy*px) / r3 , px*(vy*px - vx*py)/r3 , a , b ;
 
 
   VectorXd h = VectorXd(3) ;
   h << rho , phi , rho_dot ;
-  // y is residual between current ( h ) and new measurement ( z )
 
+
+  // y is residual between current ( h ) and new measurement ( z )
   VectorXd y = z - h ;
+
+
+  // make sure y[1] is between [-pi,+pi]
+
+  // this works , but must be slow !
   //y[1] = atan2( sin(y[1]) , cos(y[1]) ) ;
+
 
   while ( y[1] > M_PI )
     y[1] -= M_PI*2.0 ;
@@ -165,15 +174,14 @@ void KalmanFilter::UpdateRADAR(const VectorXd &z) {
   while ( y[1] < -M_PI )
     y[1] += M_PI*2.0 ;
 
-  // make sure  new phi angle is between [-pi,+pi]
-  // we could use a
-
-  // now compute kalman gain
+  // calculate kalman gain K
   MatrixXd PHt = P_ * H_radar_.transpose() ;
   MatrixXd S = H_radar_ *  PHt + R_radar_  ;
   MatrixXd K = PHt * S.inverse();
 
+  // new state estimate
   x_ = x_ + ( K * y );
+  // new
   P_ = ( I_ - K * H_radar_ ) * P_;
 
 }
