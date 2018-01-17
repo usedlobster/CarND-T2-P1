@@ -42,7 +42,7 @@ VectorXd Tools::CalculateRMSE(const vector<VectorXd> &estimations,
 
 MatrixXd Tools::CalculateJacobian(const VectorXd& x_state) {
 
-    MatrixXd Hj( 3 , 4 ) ;
+    MatrixXd Hj( 3, 4 ) ;
 
     const float px = x_state(0) ;
     const float py = x_state(1) ;

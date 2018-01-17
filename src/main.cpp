@@ -25,8 +25,32 @@ std::string hasData(std::string s) {
     return "";
 }
 
-int main() {
+
+
+
+
+int main(int argc, char *argv[]) {
+    std::vector<std::string> cmd_args ;
     uWS::Hub h;
+    bool no_radar = false ;
+    bool no_lidar = false ;
+
+
+    // convert command line arguments to std::vector of std::string elements
+    if ( argc > 1 )
+        cmd_args.assign( argv+1, argv+argc ) ;
+
+    // since know we are using c++11 as the cmake file has it set,
+    // we can do ...
+    for( auto &arg : cmd_args ) {
+        if ( arg.compare( "/noradar" ) == 0 )
+            no_radar = true ;
+        else if ( arg.compare( "/nolidar" ) == 0 )
+            no_lidar = true ;
+        else
+            std::cerr << "Usage : ExtendedKF [/noradar] [/nolidar] " ;
+
+    }
 
     // Create a Kalman Filter instance
     FusionEKF fusionEKF;
@@ -36,7 +60,7 @@ int main() {
     vector<VectorXd> estimations;
     vector<VectorXd> ground_truth;
 
-    h.onMessage([&fusionEKF,&tools,&estimations,&ground_truth](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
+    h.onMessage([&fusionEKF,&tools,&estimations,&ground_truth,&no_lidar,&no_radar](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
         // "42" at the start of the message means there's a websocket message event.
         // The 4 signifies a websocket message
         // The 2 signifies a websocket event
@@ -63,7 +87,12 @@ int main() {
                     string sensor_type;
                     iss >> sensor_type;
 
-                    if (sensor_type.compare("L") == 0) {
+                    // set true - if need to skip a measurement
+                    bool skip ;
+
+                    // we need to consume the data - even if we are going to ignore it
+
+                    if (  sensor_type.compare("L") == 0) {
                         meas_package.sensor_type_ = MeasurementPackage::LASER;
                         meas_package.raw_measurements_ = VectorXd(2);
                         float px ;
@@ -73,7 +102,8 @@ int main() {
                         meas_package.raw_measurements_ << px, py;
                         iss >> timestamp;
                         meas_package.timestamp_ = timestamp;
-                    } else if (sensor_type.compare("R") == 0) {
+                        skip = no_lidar ;
+                    } else if ( sensor_type.compare("R") == 0) {
 
                         meas_package.sensor_type_ = MeasurementPackage::RADAR;
                         meas_package.raw_measurements_ = VectorXd(3);
@@ -86,7 +116,12 @@ int main() {
                         meas_package.raw_measurements_ << ro,theta, ro_dot;
                         iss >> timestamp;
                         meas_package.timestamp_ = timestamp;
+                        skip = no_radar ;
+                    } else  {
+                        skip = true ;
                     }
+
+                    // read ground truth values
 
                     float x_gt;
                     float y_gt;
@@ -96,48 +131,59 @@ int main() {
                     iss >> y_gt;
                     iss >> vx_gt;
                     iss >> vy_gt;
-                    VectorXd gt_values(4);
-                    gt_values(0) = x_gt;
-                    gt_values(1) = y_gt;
-                    gt_values(2) = vx_gt;
-                    gt_values(3) = vy_gt;
-                    ground_truth.push_back(gt_values);
 
-                    //Call ProcessMeasurment(meas_package) for Kalman filter
-                    fusionEKF.ProcessMeasurement(meas_package);
+                    if (!skip) {
 
-                    //Push the current estimated x,y positon from the Kalman filter's state vector
 
-                    VectorXd estimate(4);
+                        VectorXd gt_values(4);
+                        gt_values(0) = x_gt;
+                        gt_values(1) = y_gt;
+                        gt_values(2) = vx_gt;
+                        gt_values(3) = vy_gt;
+                        ground_truth.push_back(gt_values);
 
-                    double p_x = fusionEKF.ekf_.x_(0);
-                    double p_y = fusionEKF.ekf_.x_(1);
-                    double v1  = fusionEKF.ekf_.x_(2);
-                    double v2  = fusionEKF.ekf_.x_(3);
 
-                    estimate(0) = p_x;
-                    estimate(1) = p_y;
-                    estimate(2) = v1;
-                    estimate(3) = v2;
 
-                    estimations.push_back(estimate);
+                        //Call ProcessMeasurment(meas_package) for Kalman filter
+                        fusionEKF.ProcessMeasurement(meas_package);
 
-                    VectorXd RMSE = tools.CalculateRMSE(estimations, ground_truth);
+                        //Push the current estimated x,y positon from the Kalman filter's state vector
 
-                    json msgJson;
-                    msgJson["estimate_x"] = p_x;
-                    msgJson["estimate_y"] = p_y;
-                    msgJson["rmse_x"]  = RMSE(0);
-                    msgJson["rmse_y"]  = RMSE(1);
-                    msgJson["rmse_vx"] = RMSE(2);
-                    msgJson["rmse_vy"] = RMSE(3);
-                    auto msg = "42[\"estimate_marker\"," + msgJson.dump() + "]";
-                    // std::cout << msg << std::endl;
-                    ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
+                        VectorXd estimate(4);
 
+                        double p_x = fusionEKF.ekf_.x_(0);
+                        double p_y = fusionEKF.ekf_.x_(1);
+                        double v1  = fusionEKF.ekf_.x_(2);
+                        double v2  = fusionEKF.ekf_.x_(3);
+
+                        estimate(0) = p_x;
+                        estimate(1) = p_y;
+                        estimate(2) = v1;
+                        estimate(3) = v2;
+
+                        estimations.push_back(estimate);
+
+                        VectorXd RMSE = tools.CalculateRMSE(estimations, ground_truth);
+
+                        json msgJson ;
+                        msgJson["estimate_x"] = p_x;
+                        msgJson["estimate_y"] = p_y;
+                        msgJson["rmse_x"]  = RMSE(0);
+                        msgJson["rmse_y"]  = RMSE(1);
+                        msgJson["rmse_vx"] = RMSE(2);
+                        msgJson["rmse_vy"] = RMSE(3);
+                        auto msg = "42[\"estimate_marker\"," + msgJson.dump() + "]";
+                        // std::cout << msg << std::endl;
+                        ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
+                    } else {
+                        // we skiped using this measurement
+                        // but we still need to send something, otherwise
+                        // simulator will freeze, waiting for reply
+                        std::string msg = "42[\"manual\",{}]";
+                        ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
+                    }
                 }
             } else {
-
                 std::string msg = "42[\"manual\",{}]";
                 ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
             }
@@ -145,7 +191,7 @@ int main() {
 
     });
 
-    // We don't need this since we're not using HTTP but if it's removed the program
+    // We don't need this since we're not using HTTP but  if it's removed the program
     // doesn't compile :-(
     h.onHttpRequest([](uWS::HttpResponse *res, uWS::HttpRequest req, char *data, size_t, size_t) {
         const std::string s = "<h1>Hello world!</h1>";
@@ -169,9 +215,9 @@ int main() {
     int port = 4567;
 
     if (h.listen(port)) {
-        std::cout << "Listening to port " << port << std::endl;
+        std::cout << "Listening on port " << port << std::endl;
     } else {
-        std::cerr << "Failed to listen to port" << std::endl;
+        std::cerr << "Failed to listen on port" << std::endl;
         return -1;
     }
 

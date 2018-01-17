@@ -32,13 +32,14 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
     /*****************************************************************************
      *  Initialization
      ****************************************************************************/
+
     if (!is_initialized_) {
         // first measurement
         cout << "EKF: " << endl;
 
         // setup
         ekf_.x_ = VectorXd(4)  ;
-        ekf_.x_ << 0 , 0, 0, 0 ;
+        ekf_.x_ << 0, 0, 0, 0 ;
 
         if (measurement_pack.sensor_type_ == MeasurementPackage::RADAR) {
 
@@ -52,7 +53,7 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
 
             // set current state - unknown velocity assume 1
             //.
-            ekf_.x_ << px, py, 1 , 1 ;
+            ekf_.x_ << px, py, 1, 1 ;
 
 
         } else if (measurement_pack.sensor_type_ == MeasurementPackage::LASER) {
@@ -62,7 +63,7 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
             float py = measurement_pack.raw_measurements_[1] ;
 
             // we don't know velocity , we assume 1
-            ekf_.x_ << px, py, 1 , 1  ;
+            ekf_.x_ << px, py, 1, 1  ;
 
         }
 

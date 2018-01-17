@@ -10,36 +10,36 @@
 #include "tools.h"
 
 class FusionEKF {
-public:
-  /**
-  * Constructor.
-  */
-  FusionEKF();
+  public:
+    /**
+    * Constructor.
+    */
+    FusionEKF();
 
-  /**
-  * Destructor.
-  */
-  virtual ~FusionEKF();
+    /**
+    * Destructor.
+    */
+    virtual ~FusionEKF();
 
-  /**
-  * Run the whole flow of the Kalman Filter from here.
-  */
-  void ProcessMeasurement(const MeasurementPackage &measurement_pack);
+    /**
+    * Run the whole flow of the Kalman Filter from here.
+    */
+    void ProcessMeasurement(const MeasurementPackage &measurement_pack);
 
-  /*
-  * Kalman Filter update and prediction math lives in here
-  */
-  KalmanFilter ekf_;
+    /*
+    * Kalman Filter update and prediction math lives in here
+    */
+    KalmanFilter ekf_;
 
-private:
+  private:
 
-  bool is_initialized_;
+    bool is_initialized_;
 
-  // previous timestamp
-  long long previous_timestamp_;
+    // previous timestamp
+    long long previous_timestamp_;
 
-  // tool object used to compute  RMSE
-  Tools tools;
+    // tool object used to compute  RMSE
+    Tools tools;
 };
 
 #endif /* FusionEKF_H_ */
