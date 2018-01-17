@@ -1,6 +1,6 @@
 # Extended Kalman Filter Project
-###Self-Driving Car Engineer Nanodegree Program
-#![image0001](image0001.png)
+### Self-Driving Car Engineer Nanodegree Program
+# ![image0001](image0001.png)
 #
 
 In this project we utilize a kalman filter to estimate the state of a moving object of interest with noisy lidar and radar measurements. 
